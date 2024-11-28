@@ -31,10 +31,6 @@
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
-#ifdef CONFIG_BACKLIGHT_LM3630
-extern int lm3630_bank_a_update_status(u32 bl_level);
-#endif
-
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	ctrl->pwm_bl = pwm_request(ctrl->pwm_lpg_chan, "lcd-bklt");
@@ -102,11 +98,7 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	ctrl->pwm_enabled = 1;
 }
 
-#ifdef CONFIG_MACH_OPPO
-static char dcs_cmd[2] = {0x56, 0x00}; /* DTYPE_DCS_READ */
-#else
 static char dcs_cmd[2] = {0x54, 0x00}; /* DTYPE_DCS_READ */
-#endif
 static struct dsi_cmd_desc dcs_read_cmd = {
 	{DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(dcs_cmd)},
 	dcs_cmd
@@ -244,10 +236,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
-#ifdef CONFIG_MACH_OPPO
-		if (gpio_is_valid(ctrl_pdata->disp_en_gpio) &&
-				gpio_is_valid(ctrl_pdata->rst_gpio)) {
-#endif
 		rc = mdss_dsi_request_gpios(ctrl_pdata);
 		if (rc) {
 			pr_err("gpio request failed\n");
@@ -263,16 +251,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				if (pdata->panel_info.rst_seq[++i])
 					usleep(pinfo->rst_seq[i] * 1000);
 			}
-#ifdef CONFIG_MACH_OPPO
-			if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio)) {
-				gpio_direction_output(ctrl_pdata->lcd_5v_en_gpio, 1);
-			}
-#endif
-#ifdef CONFIG_MACH_N3
-			if (gpio_is_valid(ctrl_pdata->disp_en_gpio76)) {
-				gpio_direction_output(ctrl_pdata->disp_en_gpio76, 1);
-			}
-#endif
 		}
 
 		if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
@@ -281,9 +259,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			else if (pinfo->mode_gpio_state == MODE_GPIO_LOW)
 				gpio_set_value((ctrl_pdata->mode_gpio), 0);
 		}
-#ifdef CONFIG_MACH_OPPO
-		}
-#endif
 		if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 			pr_debug("%s: Panel Not properly turned OFF\n",
 						__func__);
@@ -291,16 +266,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s: Reset panel done\n", __func__);
 		}
 	} else {
-#ifdef CONFIG_MACH_OPPO
-		if (gpio_is_valid(ctrl_pdata->lcd_5v_en_gpio)) {
-			gpio_direction_output(ctrl_pdata->lcd_5v_en_gpio, 0);
-		}
-#endif
-#ifdef CONFIG_MACH_N3
-		if (gpio_is_valid(ctrl_pdata->disp_en_gpio76)) {
-			gpio_direction_output(ctrl_pdata->disp_en_gpio76, 0);
-		}
-#endif
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
@@ -447,9 +412,6 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
-#ifdef CONFIG_BACKLIGHT_LM3630
-	lm3630_bank_a_update_status(bl_level);
-#endif
 }
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)

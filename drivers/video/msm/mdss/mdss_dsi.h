@@ -293,14 +293,8 @@ struct mdss_dsi_ctrl_pdata {
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
-#ifdef CONFIG_MACH_OPPO
-	int lcd_5v_en_gpio;
-#endif
 	int rst_gpio;
 	int disp_en_gpio;
-#ifdef CONFIG_MACH_N3
-	int disp_en_gpio76;
-#endif
 	int mode_gpio;
 	int bklt_ctrl;	/* backlight ctrl */
 	int pwm_period;

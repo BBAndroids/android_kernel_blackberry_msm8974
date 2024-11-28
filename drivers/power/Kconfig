@@ -417,7 +417,6 @@ config BQ27520_TEST_ENABLE
 config BATTERY_BQ27541
 	tristate "BQ27541 battery driver"
 	depends on I2C
-	depends on !BATTERY_BQ27541_OPPO
 	default n
 	help
 	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
@@ -445,7 +444,6 @@ config QPNP_CHARGER
 	depends on SPMI
 	depends on OF_SPMI
 	depends on THERMAL_QPNP_ADC_TM
-	depends on !QPNP_CHARGER_OPPO
 	help
 	  Say Y here to enable the switch mode battery charger
 	  and boost device which supports USB detection and charging. The driver
@@ -508,7 +506,4 @@ config QPNP_BMS
 	  Say Y here to enable support for QPNP chip bms device.
 	  It registers a fuelgauge bms power supply to report
 	  State of Charge.
-
-source "drivers/power/oppo/Kconfig"
-
 endif # POWER_SUPPLY

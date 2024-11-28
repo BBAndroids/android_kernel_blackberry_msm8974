@@ -365,9 +365,6 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 
 	switch (input_cfg->input_src) {
 	case VFE_PIX_0:
-#if defined(CONFIG_MACH_FIND7) || defined(CONFIG_MACH_FIND7OP)
-		input_cfg->input_pix_clk = 465000000;
-#endif
 		rc = msm_isp_cfg_pix(vfe_dev, input_cfg);
 		break;
 	case VFE_RAW_0:
@@ -1307,9 +1304,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	long rc;
-#ifdef CONFIG_MACH_OPPO
-	int retry_times = 5;
-#endif
 	ISP_DBG("%s\n", __func__);
 
 	mutex_lock(&vfe_dev->realtime_mutex);
@@ -1332,14 +1326,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
 		ISP_RST_HARD, 1);
-#ifdef CONFIG_MACH_OPPO
-	while ((rc <= 0) && retry_times) {
-		pr_err("%s: reset isp failed, try again\n", __func__);
-		rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
-			ISP_RST_HARD, 1);
-		retry_times--;
-	}
-#endif
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
 		vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);

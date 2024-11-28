@@ -5595,6 +5595,8 @@ unregister_batt:
 	if (chip->bat_if_base)
 		power_supply_unregister(&chip->batt_psy);
 fail_chg_enable:
+	regulator_unregister(chip->flash_wa_vreg.rdev);
+	regulator_unregister(chip->batfet_vreg.rdev);
 	regulator_unregister(chip->otg_vreg.rdev);
 	regulator_unregister(chip->boost_vreg.rdev);
 	return rc;
@@ -5627,6 +5629,8 @@ qpnp_charger_remove(struct spmi_device *spmi)
 	mutex_destroy(&chip->batfet_vreg_lock);
 	mutex_destroy(&chip->jeita_configure_lock);
 
+	regulator_unregister(chip->flash_wa_vreg.rdev);
+	regulator_unregister(chip->batfet_vreg.rdev);
 	regulator_unregister(chip->otg_vreg.rdev);
 	regulator_unregister(chip->boost_vreg.rdev);
 

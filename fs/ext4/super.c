@@ -1237,9 +1237,6 @@ enum {
 	Opt_inode_readahead_blks, Opt_journal_ioprio,
 	Opt_dioread_nolock, Opt_dioread_lock,
 	Opt_discard, Opt_nodiscard, Opt_init_itable, Opt_noinit_itable,
-#ifdef CONFIG_MACH_FIND7
-	Opt_uid, Opt_gid, Opt_dmask, Opt_fmask, Opt_ignore_case,
-#endif
 };
 
 static const match_table_t tokens = {
@@ -1318,13 +1315,6 @@ static const match_table_t tokens = {
 	{Opt_removed, "reservation"},	/* mount option from ext2/3 */
 	{Opt_removed, "noreservation"}, /* mount option from ext2/3 */
 	{Opt_removed, "journal=%u"},	/* mount option from ext2/3 */
-#ifdef CONFIG_MACH_FIND7
-	{Opt_uid, "uid=%u"},
-	{Opt_gid, "gid=%u"},
-	{Opt_dmask, "dmask=%o"},
-	{Opt_fmask, "fmask=%o"},
-	{Opt_ignore_case, "ignore_case=%o"},
-#endif
 	{Opt_err, NULL},
 };
 
@@ -1521,20 +1511,6 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
 	else if (token == Opt_offgrpjquota)
 		return clear_qf_name(sb, GRPQUOTA);
 #endif
-#ifdef CONFIG_MACH_FIND7
-	if (token == Opt_dmask) {
-		if (args->from && match_octal(args, &arg))
-			return -1;
-		sbi->s_dmask = arg;
-		return 1;
-	}
-	if (token == Opt_fmask) {
-		if (args->from && match_octal(args, &arg))
-			return -1;
-		sbi->s_fmask = arg;
-		return 1;
-	}
-#endif
 	if (args->from && match_int(args, &arg))
 		return -1;
 	switch (token) {
@@ -1573,17 +1549,6 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
 			return -1;
 		*journal_ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, arg);
 		return 1;
-#ifdef CONFIG_MACH_FIND7
-	case Opt_uid:
-		sbi->s_uid = arg;
-		return 1;
-	case Opt_gid:
-		sbi->s_gid = arg;
-		return 1;
-	case Opt_ignore_case:
-		sbi->s_ignore_case = arg;
-		return 1;
-#endif
 	}
 
 	for (m = ext4_mount_opts; m->token != Opt_err; m++) {
@@ -1858,17 +1823,6 @@ static int _ext4_show_options(struct seq_file *seq, struct super_block *sb,
 	if (nodefs || (test_opt(sb, INIT_INODE_TABLE) &&
 		       (sbi->s_li_wait_mult != EXT4_DEF_LI_WAIT_MULT)))
 		SEQ_OPTS_PRINT("init_itable=%u", sbi->s_li_wait_mult);
-
-#ifdef CONFIG_MACH_FIND7
-	if (nodefs || sbi->s_uid != 0)
-		SEQ_OPTS_PRINT("uid=%d", sbi->s_uid);
-	if (nodefs || sbi->s_gid != 0)
-		SEQ_OPTS_PRINT("gid=%d", sbi->s_gid);
-	if (nodefs || (sbi->s_fmask != 0 || sbi->s_dmask != 0)) {
-		SEQ_OPTS_PRINT("dmask=%04o", sbi->s_dmask);
-		SEQ_OPTS_PRINT("fmask=%04o", sbi->s_fmask);
-	}
-#endif
 
 	ext4_show_quota_options(seq, sb);
 	return 0;
@@ -4498,13 +4452,6 @@ struct ext4_mount_options {
 	unsigned long s_mount_opt2;
 	uid_t s_resuid;
 	gid_t s_resgid;
-#ifdef CONFIG_MACH_FIND7
-	uid_t s_uid;
-	gid_t s_gid;
-	unsigned short s_dmask;
-	unsigned short s_fmask;
-	unsigned short s_ignore_case;
-#endif
 	unsigned long s_commit_interval;
 	u32 s_min_batch_time, s_max_batch_time;
 #ifdef CONFIG_QUOTA
@@ -4535,13 +4482,6 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 	old_opts.s_mount_opt2 = sbi->s_mount_opt2;
 	old_opts.s_resuid = sbi->s_resuid;
 	old_opts.s_resgid = sbi->s_resgid;
-#ifdef CONFIG_MACH_FIND7
-	old_opts.s_uid = sbi->s_uid;
-	old_opts.s_gid = sbi->s_gid;
-	old_opts.s_dmask = sbi->s_dmask;
-	old_opts.s_fmask = sbi->s_fmask;
-	old_opts.s_ignore_case = sbi->s_ignore_case;
-#endif
 	old_opts.s_commit_interval = sbi->s_commit_interval;
 	old_opts.s_min_batch_time = sbi->s_min_batch_time;
 	old_opts.s_max_batch_time = sbi->s_max_batch_time;
@@ -4714,13 +4654,6 @@ restore_opts:
 	sbi->s_mount_opt2 = old_opts.s_mount_opt2;
 	sbi->s_resuid = old_opts.s_resuid;
 	sbi->s_resgid = old_opts.s_resgid;
-#ifdef CONFIG_MACH_FIND7
-	sbi->s_uid = old_opts.s_uid;
-	sbi->s_gid = old_opts.s_gid;
-	sbi->s_dmask = old_opts.s_dmask;
-	sbi->s_fmask = old_opts.s_fmask;
-	sbi->s_ignore_case = old_opts.s_ignore_case;
-#endif
 	sbi->s_commit_interval = old_opts.s_commit_interval;
 	sbi->s_min_batch_time = old_opts.s_min_batch_time;
 	sbi->s_max_batch_time = old_opts.s_max_batch_time;

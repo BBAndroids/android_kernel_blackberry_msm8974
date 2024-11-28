@@ -102,13 +102,8 @@
  * Invalid voltage range for the detection
  * of plug type with current source
  */
-#ifdef CONFIG_MACH_OPPO
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 80
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 100
-#else
 #define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 160
 #define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 265
-#endif
 
 /*
  * Threshold used to detect euro headset
@@ -130,15 +125,7 @@
 #define WCD9XXX_V_CS_HS_MAX 180
 #define WCD9XXX_V_CS_NO_MIC 5
 #define WCD9XXX_MB_MEAS_DELTA_MAX_MV 80
-#ifdef CONFIG_MACH_OPPO
-#ifdef CONFIG_MACH_N3
-#define WCD9XXX_CS_MEAS_DELTA_MAX_MV 500
-#else
-#define WCD9XXX_CS_MEAS_DELTA_MAX_MV 120
-#endif
-#else
 #define WCD9XXX_CS_MEAS_DELTA_MAX_MV 12
-#endif
 
 /* Android L spec
  * Need to report LINEIN if H/L impedance
@@ -1484,11 +1471,9 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 			 d->_type, d->swap_gnd, d->mic_bias);
 
 		if (
-#ifndef CONFIG_MACH_OPPO
 		 (!d->mic_bias &&
 		 (d->_vdces >= WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV &&
 		  d->_vdces <= WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV)) ||
-#endif
 		 (d->mic_bias &&
 		 (d->_vdces >= WCD9XXX_MEAS_INVALD_RANGE_LOW_MV &&
 		  d->_vdces <= WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV))) {
@@ -5105,18 +5090,6 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 			pr_err("Failed to create new jack\n");
 			return ret;
 		}
-
-#ifdef CONFIG_MACH_OPPO
-		ret = snd_jack_set_key(mbhc->button_jack.jack,
-				       SND_JACK_BTN_0,
-				       KEY_MEDIA);
-		ret = snd_jack_set_key(mbhc->button_jack.jack,
-					   SND_JACK_BTN_5,
-					   KEY_VOLUMEUP);
-		ret = snd_jack_set_key(mbhc->button_jack.jack,
-				       SND_JACK_BTN_7,
-				       KEY_VOLUMEDOWN);
-#endif
 
 		if (ret) {
 			pr_err("%s: Failed to set code for btn-0\n",
