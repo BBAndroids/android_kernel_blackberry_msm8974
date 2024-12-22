@@ -29,6 +29,7 @@
 #include <media/msmb_pproc.h>
 #include "msm_vpe.h"
 #include "msm_camera_io_util.h"
+#include <linux/ratelimit.h>
 
 #define MSM_VPE_IDENT_TO_SESSION_ID(identity) ((identity >> 16) & 0xFFFF)
 #define MSM_VPE_IDENT_TO_STREAM_ID(identity) (identity & 0xFFFF)
@@ -210,7 +211,7 @@ static unsigned long msm_vpe_queue_buffer_info(struct vpe_device *vpe_dev,
 
 	rc = ion_map_iommu(vpe_dev->client, buff->map_info.ion_handle,
 		vpe_dev->domain_num, 0, SZ_4K, 0,
-		&buff->map_info.phy_addr,
+		(unsigned long *)&buff->map_info.phy_addr,
 		&buff->map_info.len, 0, 0);
 	if (rc < 0) {
 		pr_err("ION mmap failed\n");
@@ -1380,8 +1381,6 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 				process_frame,
 				sizeof(struct msm_vpe_frame_info_t))) {
 					mutex_unlock(&vpe_dev->mutex);
-					kfree(process_frame);
-					kfree(event_qcmd);
 					return -EINVAL;
 		}
 
@@ -1389,6 +1388,8 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 		kfree(event_qcmd);
 		break;
 	}
+	default:
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 	}
 	mutex_unlock(&vpe_dev->mutex);
 	return rc;

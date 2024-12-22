@@ -173,16 +173,19 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
+	
+	if (gpio_is_valid(ctrl_pdata->disp_resx_gpio))
+		gpio_request(ctrl_pdata->disp_resx_gpio, "disp_resx");
 
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
-		rc = gpio_request(ctrl_pdata->disp_en_gpio,
-						"disp_enable");
+		rc = gpio_request(ctrl_pdata->disp_en_gpio, "disp_enable");
 		if (rc) {
 			pr_err("request disp_en gpio failed, rc=%d\n",
 				       rc);
 			goto disp_en_gpio_err;
 		}
 	}
+
 	rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
 	if (rc) {
 		pr_err("request reset gpio failed, rc=%d\n",
@@ -230,6 +233,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
+		return rc;
 	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
@@ -241,7 +245,12 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_err("gpio request failed\n");
 			return rc;
 		}
-		if (!pinfo->cont_splash_enabled) {
+
+		if (gpio_is_valid(ctrl_pdata->disp_resx_gpio))
+			gpio_direction_input(ctrl_pdata->disp_resx_gpio);
+
+		if (pdata->panel_info.panel_power_state == MDSS_PANEL_POWER_OFF) {
+			pr_debug("%s: Panel was off, doing reset.\n", __func__);
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 
@@ -251,7 +260,8 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				if (pdata->panel_info.rst_seq[++i])
 					usleep(pinfo->rst_seq[i] * 1000);
 			}
-		}
+		} else
+			pr_debug("%s: Panel already on, skipping reset.\n", __func__);
 
 		if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
 			if (pinfo->mode_gpio_state == MODE_GPIO_HIGH)
@@ -270,13 +280,15 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
-		if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
-			gpio_set_value((ctrl_pdata->rst_gpio), 0);
-			gpio_free(ctrl_pdata->rst_gpio);
-		}
+
+		if (gpio_is_valid(ctrl_pdata->disp_resx_gpio))
+			gpio_free(ctrl_pdata->disp_resx_gpio);
+
+		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
 			gpio_free(ctrl_pdata->mode_gpio);
 	}
+
 	return rc;
 }
 
@@ -417,7 +429,9 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
-        struct mdss_panel_info *pinfo;
+	struct mdss_panel_info *pinfo;
+	uint8_t panel_id[6];
+	const char *stage;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -430,6 +444,28 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
+	if (mdss_dsi_panel_cmd_read(ctrl, 0xA1, 0, NULL, panel_id, sizeof(panel_id)))
+	{
+		pr_err("%s: Failed to read panel id\n", __func__);
+		return -EIO;
+	}
+
+	pr_info("%s: panel manufacturing date: %4d/%02d/%02d\n", __func__, 2010 + (panel_id[0] >> 4), panel_id[0] & 0xF, panel_id[1] >> 3);
+	pr_info("%s: panel vendor id: %d\n", __func__, panel_id[1] & 7); // 1 = JDI
+	pr_info("%s: panel MDL: %d\n", __func__, panel_id[2] >> 6);
+	pr_info("%s: panel inspection equipment: %d\n", __func__, panel_id[4] >> 4);
+	pr_info("%s: panel glass manufacturing site: %d\n", __func__, panel_id[4] & 0xF);
+	pr_info("%s: panel manufacturer rev : %d\n", __func__, panel_id[5] >> 4);
+	switch ((panel_id[5] >> 2) & 0x3)
+	{
+		case 0: stage = "TS"; break;
+		case 1: stage = "ES"; break;
+		case 2: stage = "CS"; break;
+		case 3: stage = "MP"; break;
+	}
+	pr_info("%s: panel rim status: %s%d\n", __func__, stage, (panel_id[5] & 0x3) + 1);
+	pr_info("%s: panel serial: %d\n", __func__, panel_id[3] | ((panel_id[2] & 0x3F) << 8));
+
 	if (ctrl->on_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
 
@@ -441,7 +477,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
-        struct mdss_panel_info *pinfo;
+	struct mdss_panel_info *pinfo;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);

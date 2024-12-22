@@ -46,10 +46,59 @@
 #include "pm.h"
 #include "modem_notifier.h"
 #include "platsmp.h"
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+#include <linux/persistent_ram.h>
+#include <linux/memblock.h>
+
+static struct persistent_ram_descriptor desc = {
+	.name = "ram_console",
+};
+static struct persistent_ram ram = {
+	.descs = &desc,
+	.num_descs = 1,
+};
+void __init ram_console_debug_reserve(unsigned long ram_console_size)
+{
+	int ret;
+	ram.start = memblock_end_of_DRAM() - ram_console_size;
+	ram.size = ram_console_size;
+	ram.descs->size = ram_console_size;
+	INIT_LIST_HEAD(&ram.node);
+	ret = persistent_ram_early_init(&ram);
+	if (ret) {
+		pr_err("%s:ram console persistent_ram_early_init failed\n",__func__);
+		goto fail;
+	}
+	return;
+fail:
+	pr_err("Failed to reserve memory block for ram console\n");
+}
+static struct resource ram_console_resources[] = {
+	{
+		.flags = IORESOURCE_MEM,
+	},
+};
+static struct platform_device ram_console_device = {
+	.name           = "ram_console",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(ram_console_resources),
+	.resource       = ram_console_resources,
+};
+void __init ram_console_debug_init(void)
+{
+	int err;
+	err = platform_device_register(&ram_console_device);
+	if (err)
+		pr_err("%s: ram console registration failed (%d)!\n", __func__, err);
+}
+#endif
 
 void __init msm_8974_reserve(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	ram_console_debug_reserve(SZ_1M * 2);
+#endif
 }
 
 /*
@@ -73,6 +122,9 @@ void __init msm8974_add_drivers(void)
 		msm_clock_init(&msm8974_clock_init_data);
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	ram_console_debug_init();
+#endif
 }
 
 static struct of_dev_auxdata msm_hsic_host_adata[] = {

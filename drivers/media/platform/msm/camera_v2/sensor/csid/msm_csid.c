@@ -457,7 +457,7 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			break;
 		}
 		if (csid_params.lut_params.num_cid < 1 ||
-			csid_params.lut_params.num_cid > MAX_CID) {
+			csid_params.lut_params.num_cid > 16) {
 			pr_err("%s: %d num_cid outside range\n",
 				 __func__, __LINE__);
 			rc = -EINVAL;
@@ -484,10 +484,6 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 				break;
 			}
 			csid_params.lut_params.vc_cfg[i] = vc_cfg;
-		}
-		if (rc < 0) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			break;
 		}
 		rc = msm_csid_config(csid_dev, &csid_params);
 		for (i--; i >= 0; i--)
@@ -536,7 +532,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csid_release(csid_dev);
 		break;
 	default:
-		pr_err("%s: command not found\n", __func__);
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 	}
 	CDBG("%s:%d\n", __func__, __LINE__);
 	mutex_unlock(&csid_dev->mutex);

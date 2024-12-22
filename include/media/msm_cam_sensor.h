@@ -459,6 +459,7 @@ struct msm_eeprom_cfg_data {
 		struct eeprom_write_t write_data;
 		struct eeprom_get_mm_t get_mm_data;
 	} cfg;
+	uint16_t module_id;
 };
 
 enum msm_sensor_cfg_type_t {
@@ -497,6 +498,8 @@ enum msm_actuator_cfg_type_t {
 	CFG_SET_POSITION,
 	CFG_ACTUATOR_POWERDOWN,
 	CFG_ACTUATOR_POWERUP,
+	CFG_ACTUATOR_WRITE_I2C_SEQ_ARRAY,
+	CFG_ACTUATOR_READ_I2C_SEQ_ARRAY
 };
 
 enum actuator_type {
@@ -610,6 +613,15 @@ struct msm_actuator_set_position_t {
 	uint16_t delay[MAX_NUMBER_OF_STEPS];
 };
 
+struct msm_actuator_i2c_conf
+{
+	uint16_t slave_addr;
+	uint16_t reg_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	uint8_t *reg_data_ptr;
+	uint16_t reg_data_size;
+};
+
 struct msm_actuator_cfg_data {
 	int cfgtype;
 	uint8_t is_af_supported;
@@ -619,6 +631,7 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_get_info_t get_info;
 		struct msm_actuator_set_position_t setpos;
 		enum af_camera_name cam_name;
+		struct msm_actuator_i2c_conf *i2c_conf;
 	} cfg;
 };
 
@@ -641,12 +654,20 @@ enum msm_camera_led_config_t {
 	MSM_CAMERA_LED_HIGH,
 	MSM_CAMERA_LED_INIT,
 	MSM_CAMERA_LED_RELEASE,
+	MSM_CAMERA_LED_THERMAL_LIMIT,
+	MSM_CAMERA_LED_LOW2
 };
 
 struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
 	uint32_t torch_current;
 	uint32_t flash_current[2];
+#if 1 // AAA596
+	uint32_t thermal_limit;
+#else // AAC014
+	uint32_t flash_thermal_limit;
+	uint32_t torch_thermal_limit;
+#endif
 };
 
 /* sensor init structures and enums */

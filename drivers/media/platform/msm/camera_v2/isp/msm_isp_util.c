@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,9 @@
 #define MAX_ISP_V4l2_EVENTS 100
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
 static struct msm_isp_bandwidth_mgr isp_bandwidth_mgr;
+
+#define MSM_ISP_MIN_AB 300000000
+#define MSM_ISP_MIN_IB 450000000
 
 #define VFE40_8974V2_VERSION 0x1001001A
 static struct msm_bus_vectors msm_isp_init_vectors[] = {
@@ -458,7 +461,7 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 		break;
 
 	default:
-		pr_err_ratelimited("%s: Invalid ISP command\n", __func__);
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 		rc = -EINVAL;
 	}
 	return rc;
@@ -518,8 +521,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	case VFE_READ_DMI_16BIT:
 	case VFE_READ_DMI_32BIT:
 	case VFE_READ_DMI_64BIT: {
-		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT ||
-			reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
+		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT) {
 			if ((reg_cfg_cmd->u.dmi_info.hi_tbl_offset <=
 				reg_cfg_cmd->u.dmi_info.lo_tbl_offset) ||
 				(reg_cfg_cmd->u.dmi_info.hi_tbl_offset -
@@ -1017,6 +1019,8 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 {
 	struct msm_vfe_error_info *error_info = &vfe_dev->error_info;
 	error_info->info_dump_frame_count++;
+	if (error_info->info_dump_frame_count == 0)
+		error_info->info_dump_frame_count++;
 }
 
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)
@@ -1197,7 +1201,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	vfe_dev->hw_info->vfe_ops.irq_ops.
 		read_irq_status(vfe_dev, &irq_status0, &irq_status1);
 	if ((irq_status0 == 0) && (irq_status1 == 0)) {
-		ISP_DBG("%s: irq_status0 & 1 are both 0\n",
+		pr_err_ratelimited("%s: irq_status0 & 1 are both 0\n",
 			__func__);
 		return IRQ_HANDLED;
 	}
@@ -1328,7 +1332,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		ISP_RST_HARD, 1);
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
-		vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -EINVAL;
@@ -1376,10 +1379,11 @@ void msm_isp_end_avtimer(void)
 
 int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+	long rc;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
+	ISP_DBG("%s\n", __func__);
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
-
 	if (vfe_dev->vfe_open_cnt == 0) {
 		pr_err("%s: Invalid close\n", __func__);
 		mutex_unlock(&vfe_dev->core_mutex);
@@ -1387,7 +1391,10 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -ENODEV;
 	}
 
-	vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
+	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
+	if (rc <= 0)
+		pr_err("%s: halt timeout rc=%ld\n", __func__, rc);
+
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 	vfe_dev->vfe_open_cnt--;

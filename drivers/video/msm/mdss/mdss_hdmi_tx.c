@@ -1037,6 +1037,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 	edid_init_data.mutex = &hdmi_ctrl->mutex;
 	edid_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 	edid_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
+	edid_init_data.ds_read_edid_block = &hdmi_ctrl->ds_read_edid_block;
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] =
 		hdmi_edid_init(&edid_init_data);
@@ -1852,7 +1853,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	if (enable) {
 		rc = msm_dss_enable_vreg(power_data->vreg_config,
-			power_data->num_vreg, 1);
+			power_data->num_vreg, 1, 0);
 		if (rc) {
 			DEV_ERR("%s: Failed to enable %s vreg. Error=%d\n",
 				__func__, hdmi_tx_pm_name(module), rc);
@@ -1888,7 +1889,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
 		msm_dss_enable_vreg(power_data->vreg_config,
-			power_data->num_vreg, 0);
+			power_data->num_vreg, 0, 0);
 	}
 
 	return rc;
@@ -1896,7 +1897,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 disable_gpio:
 	msm_dss_enable_gpio(power_data->gpio_config, power_data->num_gpio, 0);
 disable_vreg:
-	msm_dss_enable_vreg(power_data->vreg_config, power_data->num_vreg, 0);
+	msm_dss_enable_vreg(power_data->vreg_config, power_data->num_vreg, 0, 0);
 error:
 	return rc;
 } /* hdmi_tx_enable_power */
@@ -2895,6 +2896,12 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 
 	return rc;
 } /* hdmi_tx_sysfs_enable_hpd */
+
+int hdmi_tx_slimport_enable_hpd(struct platform_device *pdev, int on)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	return hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, on);
+}
 
 static int hdmi_tx_set_mhl_hpd(struct platform_device *pdev, uint8_t on)
 {

@@ -1,0 +1,118 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974pro-pm8941.dtsi"
+/include/ "msm8974-wolverine.dtsi"
+
+/ {
+	model = "MSM 8974 WICHITA";
+	compatible = "qcom,msm8974-wichita", "qcom,msm8974";
+	qcom,msm-id = <217 0x10000>;
+	qcom,board-id = <
+		0x8c002c0a 0x00000 /* wichita */
+		0xf0740458 0x00000 /* wichita */
+	>;
+};
+
+&cci {
+	qcom,camera@0 {
+		qcom,mount-angle = <0>;
+	};
+
+	qcom,camera@1 {
+		qcom,mount-angle = <180>;
+	};
+};
+
+&pm8941_lsid1 {
+	qcom,leds@d800 {
+		status = "disabled";
+		/delete-node/ qcom,wled_0;
+	};
+};
+
+&soc {
+	bt_rfkill {
+		gpio_bt_reset = <&msmgpio 50 0>;
+	};
+
+	/*
+	i2c@f9967000 {
+		bcm_nfc_i2c@76 {
+			bcm,ena-gpio = <&msmgpio 130 0>;
+			bcm,irq-gpio = <&msmgpio 68 0>;
+			interrupts = <68 0>;
+		};
+	};
+	*/
+
+	i2c@f9967000 {
+		/delete-node/ bcm_nfc_i2c@76;
+	};
+	
+	/*
+	i2c@f9928000 {
+		/delete-node/ anx7808_i2c@70;
+	};
+	*/
+
+	gpio_keys {
+		/delete-node/ hall_sensor;
+	};
+
+	i2c@f9925000 { // i2c 3
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <3>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9925000 0x1000>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 97 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,master-id = <86>;
+		qcom,scl-gpio = <&msmgpio 11 0x00>;
+		qcom,sda-gpio = <&msmgpio 10 0x00>;
+		status = "ok";
+
+		stled110@31 {
+			compatible = "stled110";
+			reg = <0x31>;
+			stled110,ldo_en = <&msmgpio 94 0x00>;
+			stled110,bl_en = <&msmgpio 109 0x00>;
+			linux,default-trigger = "bkl-trigger";
+		};
+	};
+
+/*
+	i2c@3 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <3>;
+		compatible = "i2c-gpio";
+		gpios = <&msmgpio 10 0x00 &msmgpio 11 0x00>;
+		i2c-gpio,delay-us = <2>;
+		status = "ok";
+
+		stled110@31 {
+			compatible = "stled110";
+			reg = <0x31>;
+			stled110,ldo_en = <&msmgpio 94 0x00>;
+			stled110,bl_en = <&msmgpio 109 0x00>;
+			linux,default-trigger = "bkl-trigger";
+		};
+	};
+*/
+};

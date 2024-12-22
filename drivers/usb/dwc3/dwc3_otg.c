@@ -18,6 +18,7 @@
 #include <linux/usb/hcd.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/slimport.h>
 
 #include "core.h"
 #include "dwc3_otg.h"
@@ -549,7 +550,8 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	else if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_CDP;
 	else if (dotg->charger->chg_type == DWC3_DCP_CHARGER ||
-			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER)
+			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER ||
+			dotg->charger->chg_type == DWC3_FLOATED_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else
 		power_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
@@ -558,6 +560,13 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 	if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
 		mA = DWC3_IDEV_CHG_MAX;
+
+	if (slimport_is_connected() && mA) {
+		mA = slimport_get_chg_current();
+		if (mA > DWC3_IDEV_CHG_MIN)
+			dotg->charger->chg_type = DWC3_DCP_CHARGER;
+	}
+
 	if (dotg->charger->max_power == mA)
 		return 0;
 
@@ -743,6 +752,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_B_IDLE:
 		if (!test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
+			if (slimport_is_connected()) {
+				work = 1;
+				break;
+			}
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
 			dotg->charger_retry_count = 0;
@@ -775,10 +788,16 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_SDP_CHARGER:
-					dwc3_otg_start_peripheral(&dotg->otg,
-									1);
-					phy->state = OTG_STATE_B_PERIPHERAL;
-					work = 1;
+					dwc3_otg_set_power(phy,
+							DWC3_IDEV_CHG_MIN);
+					if (!slimport_is_connected()) {
+						dwc3_otg_start_peripheral(
+								&dotg->otg,
+								1);
+						phy->state =
+							OTG_STATE_B_PERIPHERAL;
+						work = 1;
+					}
 					break;
 				case DWC3_FLOATED_CHARGER:
 					if (dotg->charger_retry_count <
@@ -795,7 +814,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					 */
 					if (dotg->charger_retry_count ==
 						max_chgr_retry_count) {
-						dwc3_otg_set_power(phy, 0);
+						dwc3_otg_set_power(phy, DWC3_IDEV_CHG_MAX);
 						pm_runtime_put_sync(phy->dev);
 						break;
 					}

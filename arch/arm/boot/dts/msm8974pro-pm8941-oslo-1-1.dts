@@ -1,0 +1,39 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974pro-pm8941.dtsi"
+/include/ "msm8974-oslo.dtsi"
+
+/ {
+	model = "MSM 8974 OSLO 1.1";
+	compatible = "qcom,msm8974-oslo", "qcom,msm8974";
+	qcom,msm-id = <217 0x10000>;
+	qcom,board-id = <
+		0x8d002c0a 0x10001 /* oslo row */
+		0x8e002c0a 0x10001 /* oslo row */
+		0x8f002c0a 0x10001 /* oslo row */
+		0xf5b242c3 0x10001 /* oslo row */
+		0xfc7033c3 0x10001 /* keian row */
+	>;
+};
+
+&cci {
+	qcom,camera@0 {
+		qcom,mount-angle = <90>;
+	};
+
+	qcom,camera@1 {
+		qcom,mount-angle = <90>;
+	};
+};

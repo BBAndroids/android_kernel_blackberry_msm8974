@@ -1149,6 +1149,7 @@ _dhd_wlfc_mac_entry_update(athost_wl_status_info_t* ctx, wlfc_mac_descriptor_t* 
 {
 	int rc = BCME_OK;
 
+
 	if (action == eWLFC_MAC_ENTRY_ACTION_ADD) {
 		entry->occupied = 1;
 		entry->state = WLFC_STATE_OPEN;

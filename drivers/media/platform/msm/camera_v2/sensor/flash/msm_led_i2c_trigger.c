@@ -83,6 +83,11 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		if (fctrl->func_tbl->flash_led_high)
 			rc = fctrl->func_tbl->flash_led_high(fctrl);
 		break;
+
+	case MSM_CAMERA_LED_THERMAL_LIMIT:
+		pr_err("%s: TODO: BlackBerry Flash thermal limit", __func__);
+		break;
+
 	default:
 		rc = -EFAULT;
 		break;

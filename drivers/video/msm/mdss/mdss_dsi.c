@@ -106,7 +106,7 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 			continue;
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data[i].vreg_config,
-			ctrl_pdata->power_data[i].num_vreg, 0);
+			ctrl_pdata->power_data[i].num_vreg, 0, 0);
 		if (ret)
 			pr_err("%s: failed to disable vregs for %s\n",
 				__func__, __mdss_dsi_pm_name(i));
@@ -118,7 +118,7 @@ end:
 
 static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 {
-	int ret = 0;
+	int ret = 0, vdd_was_on;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	int i = 0;
 
@@ -139,11 +139,15 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			continue;
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data[i].vreg_config,
-			ctrl_pdata->power_data[i].num_vreg, 1);
+			ctrl_pdata->power_data[i].num_vreg, 1, &vdd_was_on);
 		if (ret) {
 			pr_err("%s: failed to enable vregs for %s\n",
 				__func__, __mdss_dsi_pm_name(i));
 			goto error;
+		}
+		
+		if (vdd_was_on) {
+			pdata->panel_info.panel_power_state = MDSS_PANEL_POWER_ON;
 		}
 	}
 
@@ -171,7 +175,7 @@ error:
 		for (; i >= 0; i--)
 			msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
-				ctrl_pdata->power_data[i].num_vreg, 0);
+				ctrl_pdata->power_data[i].num_vreg, 0, 0);
 	}
 	return ret;
 }
@@ -584,13 +588,9 @@ static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	if (mode == DSI_CMD_MODE) {
 		pinfo->mipi.mode = DSI_CMD_MODE;
 		pinfo->type = MIPI_CMD_PANEL;
-		pinfo->mipi.vsync_enable = 1;
-		pinfo->mipi.hw_vsync_mode = 1;
 	} else {	/*video mode*/
 		pinfo->mipi.mode = DSI_VIDEO_MODE;
 		pinfo->type = MIPI_VIDEO_PANEL;
-		pinfo->mipi.vsync_enable = 0;
-		pinfo->mipi.hw_vsync_mode = 0;
 	}
 
 	ctrl_pdata->panel_mode = pinfo->mipi.mode;
@@ -771,9 +771,12 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
 	}
 
-	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
-		mipi->vsync_enable && mipi->hw_vsync_mode)
-		mdss_dsi_set_tear_on(ctrl_pdata);
+	if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+		if (mipi->vsync_enable && mipi->hw_vsync_mode
+			&& gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+				mdss_dsi_set_tear_on(ctrl_pdata);
+		}
+	}
 
 	mdss_livedisplay_update(pdata->panel_info.livedisplay,
 			MODE_UPDATE_ALL);
@@ -831,9 +834,12 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 		}
 	}
 
-	if ((pdata->panel_info.type == MIPI_CMD_PANEL) &&
-		mipi->vsync_enable && mipi->hw_vsync_mode)
-		mdss_dsi_set_tear_off(ctrl_pdata);
+	if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+		if (mipi->vsync_enable && mipi->hw_vsync_mode
+			&& gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+			mdss_dsi_set_tear_off(ctrl_pdata);
+		}
+	}
 
 	if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 		if (!pdata->panel_info.dynamic_switch_pending) {
@@ -1590,6 +1596,51 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		pr_err("%s:%d, Disp_en gpio not specified\n",
 						__func__, __LINE__);
+
+	ctrl_pdata->disp_resx_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"qcom,platform-resx-gpio", 0);
+
+	if (pinfo->type == MIPI_CMD_PANEL) {
+		ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+						"qcom,platform-te-gpio", 0);
+		if (!gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
+			pr_err("%s:%d, Disp_te gpio not specified\n",
+						__func__, __LINE__);
+		}
+	}
+
+	if (gpio_is_valid(ctrl_pdata->disp_te_gpio) &&
+					pinfo->type == MIPI_CMD_PANEL) {
+		rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
+		if (rc) {
+			pr_err("request TE gpio failed, rc=%d\n",
+			       rc);
+			return -ENODEV;
+		}
+		rc = gpio_tlmm_config(GPIO_CFG(
+				ctrl_pdata->disp_te_gpio, 1,
+				GPIO_CFG_INPUT,
+				GPIO_CFG_PULL_DOWN,
+				GPIO_CFG_2MA),
+				GPIO_CFG_ENABLE);
+
+		if (rc) {
+			pr_err("%s: unable to config tlmm = %d\n",
+				__func__, ctrl_pdata->disp_te_gpio);
+			gpio_free(ctrl_pdata->disp_te_gpio);
+			return -ENODEV;
+		}
+
+		rc = gpio_direction_input(ctrl_pdata->disp_te_gpio);
+		if (rc) {
+			pr_err("set_direction for disp_te gpio failed, rc=%d\n",
+			       rc);
+			gpio_free(ctrl_pdata->disp_te_gpio);
+			return -ENODEV;
+		}
+		pr_debug("%s: te_gpio=%d\n", __func__,
+					ctrl_pdata->disp_te_gpio);
+	}
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);

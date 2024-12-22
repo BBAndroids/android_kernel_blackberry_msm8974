@@ -34,6 +34,7 @@
 #define sd_data(x)
 #define sd_ctrl(x)
 
+
 #define sd_sync_dma(sd, read, nbytes)
 #define sd_init_dma(sd)
 #define sd_ack_intr(sd)

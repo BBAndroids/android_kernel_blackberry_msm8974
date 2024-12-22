@@ -22,6 +22,7 @@
 #include "msm_sd.h"
 #include "msm_csiphy_hwreg.h"
 #include "msm_camera_io_util.h"
+#include <linux/ratelimit.h>
 #define DBG_CSIPHY 0
 
 #define V4L2_IDENT_CSIPHY                        50003
@@ -639,7 +640,7 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_csiphy_release(csiphy_dev, arg);
 		break;
 	default:
-		pr_err("%s: command not found\n", __func__);
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 	}
 	mutex_unlock(&csiphy_dev->mutex);
 	CDBG("%s:%d\n", __func__, __LINE__);

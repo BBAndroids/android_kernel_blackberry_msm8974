@@ -370,6 +370,7 @@ typedef struct dhd_bus {
 	uint8		glom_mode;	/* Glom mode - 0-copy mode, 1 - Multi-descriptor mode */
 	uint32		glomsize;	/* Glom size limitation */
 #endif
+	wake_counts_t	wake_counts;
 } dhd_bus_t;
 
 /* clkstate */
@@ -1724,7 +1725,6 @@ dhd_tcpack_suppress(dhd_pub_t *dhdp, void *pkt)
 	return FALSE;
 }
 #endif /* DHDTCPACK_SUPPRESS */
-
 /* Writes a HW/SW header into the packet and sends it. */
 /* Assumes: (a) header space already there, (b) caller holds lock */
 static int
@@ -2834,7 +2834,9 @@ void
 dhd_bus_dump(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 {
 	dhd_bus_t *bus = dhdp->bus;
-
+#if defined(DHD_WAKE_STATUS) && defined(DHD_WAKE_EVENT_STATUS)
+	int i;
+#endif
 	bcm_bprintf(strbuf, "Bus SDIO structure:\n");
 	bcm_bprintf(strbuf, "hostintmask 0x%08x intstatus 0x%08x sdpcm_ver %d\n",
 	            bus->hostintmask, bus->intstatus, bus->sdpcm_ver);
@@ -2843,6 +2845,29 @@ dhd_bus_dump(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 	            bus->rxlen, bus->rx_seq);
 	bcm_bprintf(strbuf, "intr %d intrcount %u lastintrs %u spurious %u\n",
 	            bus->intr, bus->intrcount, bus->lastintrs, bus->spurious);
+#ifdef DHD_WAKE_STATUS
+	bcm_bprintf(strbuf, "wake %u rxwake %u readctrlwake %u\n",
+	            bcmsdh_get_total_wake(bus->sdh), bus->wake_counts.rxwake,
+	            bus->wake_counts.rcwake);
+#ifdef DHD_WAKE_RX_STATUS
+	bcm_bprintf(strbuf, " unicast %u multicast %u broadcast %u arp %u\n",
+	            bus->wake_counts.rx_ucast, bus->wake_counts.rx_mcast,
+	            bus->wake_counts.rx_bcast, bus->wake_counts.rx_arp);
+	bcm_bprintf(strbuf, " multi4 %u multi6 %u icmp6 %u multiother %u\n",
+	            bus->wake_counts.rx_multi_ipv4, bus->wake_counts.rx_multi_ipv6,
+	            bus->wake_counts.rx_icmpv6, bus->wake_counts.rx_multi_other);
+	bcm_bprintf(strbuf, " icmp6_ra %u, icmp6_na %u, icmp6_ns %u\n",
+                    bus->wake_counts.rx_icmpv6_ra, bus->wake_counts.rx_icmpv6_na,
+                    bus->wake_counts.rx_icmpv6_ns);
+#endif
+#ifdef DHD_WAKE_EVENT_STATUS
+	for (i = 0; i < WLC_E_LAST; i++)
+		if (bus->wake_counts.rc_event[i] != 0)
+			bcm_bprintf(strbuf, " %s = %u\n", bcmevent_get_name(i),
+				    bus->wake_counts.rc_event[i]);
+	bcm_bprintf(strbuf, "\n");
+#endif
+#endif
 	bcm_bprintf(strbuf, "pollrate %u pollcnt %u regfails %u\n",
 	            bus->pollrate, bus->pollcnt, bus->regfails);
 
@@ -3446,7 +3471,8 @@ dhd_serialconsole(dhd_bus_t *bus, bool set, bool enable, int *bcmerror)
 	}
 	else if (bus->sih->chip == BCM4334_CHIP_ID ||
 		bus->sih->chip == BCM43340_CHIP_ID ||
-		bus->sih->chip == BCM43341_CHIP_ID) {
+		bus->sih->chip == BCM43341_CHIP_ID ||
+		0) {
 		if (enable) {
 			/* Moved to PMU chipcontrol 1 from 4330 */
 			int_val &= ~gpio_sel;
@@ -4068,7 +4094,6 @@ dhdsdio_doiovar(dhd_bus_t *bus, const bcm_iovar_t *vi, uint32 actionid, const ch
 		}
 		break;
 #endif /* BCMSDIOH_TXGLOM */
-
 	case IOV_SVAL(IOV_HANGREPORT):
 		bus->dhd->hang_report = bool_val;
 		DHD_ERROR(("%s: Set hang_report as %d\n", __FUNCTION__, bus->dhd->hang_report));
@@ -4898,7 +4923,7 @@ dhd_process_pkt_reorder_info(dhd_pub_t *dhd, uchar *reorder_info_buf, uint reord
 	void **pkt, uint32 *pkt_count);
 
 static uint8
-dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq)
+dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq, int pkt_wake)
 {
 	uint16 dlen, totlen;
 	uint8 *dptr, num = 0;
@@ -5311,7 +5336,8 @@ dhdsdio_rxglom(dhd_bus_t *bus, uint8 rxseq)
 				} while (temp);
 				if (cnt) {
 					dhd_os_sdunlock(bus->dhd);
-					dhd_rx_frame(bus->dhd, idx, list_head[idx], cnt, 0);
+					dhd_rx_frame(bus->dhd, idx, list_head[idx], cnt, 0, pkt_wake, &bus->wake_counts);
+					pkt_wake = 0;
 					dhd_os_sdlock(bus->dhd);
 				}
 			}
@@ -5349,13 +5375,16 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 	uchar reorder_info_buf[WLHOST_REORDERDATA_TOTLEN];
 	uint reorder_info_len;
 	uint pkt_count;
-
+	int pkt_wake = 0;
 #if defined(DHD_DEBUG) || defined(SDTEST)
 	bool sdtest = FALSE;	/* To limit message spew from test mode */
 #endif
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
+#ifdef DHD_WAKE_STATUS
+	pkt_wake = bcmsdh_set_get_wake(0);
+#endif
 	bus->readframes = TRUE;
 
 	if (!KSO_ENAB(bus)) {
@@ -5397,7 +5426,8 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 			uint8 cnt;
 			DHD_GLOM(("%s: calling rxglom: glomd %p, glom %p\n",
 			          __FUNCTION__, bus->glomd, bus->glom));
-			cnt = dhdsdio_rxglom(bus, rxseq);
+			cnt = dhdsdio_rxglom(bus, rxseq, pkt_wake);
+			pkt_wake = 0;
 			DHD_GLOM(("%s: rxglom returned %d\n", __FUNCTION__, cnt));
 			rxseq += cnt - 1;
 			rxleft = (rxleft > cnt) ? (rxleft - cnt) : 1;
@@ -5914,7 +5944,8 @@ deliver:
 
 		/* Unlock during rx call */
 		dhd_os_sdunlock(bus->dhd);
-		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan);
+		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan, pkt_wake, &bus->wake_counts);
+		pkt_wake = 0;
 		dhd_os_sdlock(bus->dhd);
 	}
 	rxcount = maxframes - rxleft;
@@ -6052,7 +6083,6 @@ dhdsdio_dpc(dhd_bus_t *bus)
 	uint framecnt = 0;		  /* Temporary counter of tx/rx frames */
 	bool rxdone = TRUE;		  /* Flag for no more read data */
 	bool resched = FALSE;	  /* Flag indicating resched wanted */
-
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
 	if (bus->dhd->busstate == DHD_BUS_DOWN) {
@@ -8113,6 +8143,7 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 						dhd_txflowcontrol(bus->dhd, ALL_INTERFACES, OFF);
 #endif 
 						dhd_os_wd_timer(dhdp, dhd_watchdog_ms);
+
 						DHD_TRACE(("%s: WLAN ON DONE\n", __FUNCTION__));
 					} else {
 						dhd_bus_stop(bus, FALSE);
@@ -8146,7 +8177,7 @@ uint dhd_bus_chip_id(dhd_pub_t *dhdp)
 {
 	dhd_bus_t *bus = dhdp->bus;
 
-	return bus->sih->chip;
+	return  bus->sih->chip;
 }
 
 /* Get Chip Rev ID version */
@@ -8164,7 +8195,6 @@ uint dhd_bus_chippkg_id(dhd_pub_t *dhdp)
 
 	return bus->sih->chippkg;
 }
-
 int
 dhd_bus_membytes(dhd_pub_t *dhdp, bool set, uint32 address, uint8 *data, uint size)
 {

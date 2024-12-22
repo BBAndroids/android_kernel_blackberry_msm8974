@@ -986,7 +986,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_debug("%s: Enable MDP FS\n", __func__);
 			rc = msm_dss_enable_vreg(
 				ctrl->power_data[DSI_CORE_PM].vreg_config,
-				ctrl->power_data[DSI_CORE_PM].num_vreg, 1);
+				ctrl->power_data[DSI_CORE_PM].num_vreg, 1, 0);
 			if (rc) {
 				pr_err("%s: failed to enable vregs for %s\n",
 					__func__,
@@ -1081,7 +1081,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_debug("%s: Disable MDP FS\n", __func__);
 			rc = msm_dss_enable_vreg(
 				ctrl->power_data[DSI_CORE_PM].vreg_config,
-				ctrl->power_data[DSI_CORE_PM].num_vreg, 0);
+				ctrl->power_data[DSI_CORE_PM].num_vreg, 0, 0);
 			if (rc) {
 				pr_warn("%s: failed to disable vregs for %s\n",
 					__func__,
@@ -1107,7 +1107,7 @@ error_ulps:
 	mdss_dsi_bus_clk_stop(ctrl);
 error_bus_clk_start:
 	if (msm_dss_enable_vreg(ctrl->power_data[DSI_CORE_PM].vreg_config,
-		ctrl->power_data[DSI_CORE_PM].num_vreg, 0))
+		ctrl->power_data[DSI_CORE_PM].num_vreg, 0, 0))
 		pr_warn("%s: failed to disable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_CORE_PM));
 	else

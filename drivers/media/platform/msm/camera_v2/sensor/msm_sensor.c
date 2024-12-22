@@ -19,6 +19,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <linux/regulator/consumer.h>
+#include <linux/ratelimit.h>
 
 /*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
@@ -549,6 +550,7 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	case MSM_SD_SHUTDOWN:
 		return 0;
 	default:
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 		return -ENOIOCTLCMD;
 	}
 }
@@ -738,8 +740,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 
-		if ((!conf_array.size) ||
-			(conf_array.size > I2C_USER_REG_DATA_MAX )) {
+		if (!conf_array.size) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
@@ -913,8 +914,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 
-		if ((!conf_array.size) ||
-			(conf_array.size > I2C_USER_REG_DATA_MAX )) {
+		if (!conf_array.size) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;

@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <linux/ratelimit.h>
 #include "msm_generic_buf_mgr.h"
 
 static struct msm_buf_mngr_device *msm_buf_mngr_dev;
@@ -178,6 +180,7 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 		msm_buf_mngr_sd_shutdown(buf_mngr_dev);
 		break;
 	default:
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 		return -ENOIOCTLCMD;
 	}
 	return rc;

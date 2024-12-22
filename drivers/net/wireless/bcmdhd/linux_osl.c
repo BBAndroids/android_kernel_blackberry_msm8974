@@ -1224,6 +1224,7 @@ osl_sleep(uint ms)
 }
 
 
+
 /* Clone a packet.
  * The pkttag contents are NOT cloned.
  */
@@ -1236,9 +1237,6 @@ osl_pktdup(osl_t *osh, void *skb)
 #endif /* BCMDBG_CTRACE */
 {
 	void * p;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36))
-	gfp_t flags;
-#endif
 
 	ASSERT(!PKTISCHAINED(skb));
 
@@ -1248,8 +1246,7 @@ osl_pktdup(osl_t *osh, void *skb)
 	PKTCTFMAP(osh, skb);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
-	flags = (in_atomic() || irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL;
-	if ((p = pskb_copy((struct sk_buff *)skb, flags)) == NULL)
+	if ((p = pskb_copy((struct sk_buff *)skb, GFP_ATOMIC)) == NULL)
 #else
 	if ((p = skb_clone((struct sk_buff *)skb, GFP_ATOMIC)) == NULL)
 #endif

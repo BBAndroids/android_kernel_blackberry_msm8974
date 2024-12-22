@@ -914,8 +914,7 @@ long __msm_jpeg_ioctl(struct msm_jpeg_device *pgmn_dev,
 		rc = msm_jpeg_ioctl_set_clk_rate(pgmn_dev, arg);
 		break;
 	default:
-		pr_err_ratelimited("%s:%d] cmd = %d not supported\n",
-			__func__, __LINE__, _IOC_NR(cmd));
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 		rc = -EINVAL;
 		break;
 	}

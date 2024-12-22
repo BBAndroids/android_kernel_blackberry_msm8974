@@ -22,6 +22,7 @@ struct hdmi_edid_init_data {
 	struct kobject *sysfs_kobj;
 
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+	int (**ds_read_edid_block) (int block, uint8_t *edid_buf);
 };
 
 int hdmi_edid_read(void *edid_ctrl);

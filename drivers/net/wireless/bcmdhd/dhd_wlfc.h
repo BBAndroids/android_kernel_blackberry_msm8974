@@ -24,6 +24,8 @@
 #ifndef __wlfc_host_driver_definitions_h__
 #define __wlfc_host_driver_definitions_h__
 
+
+
 /* 16 bits will provide an absolute max of 65536 slots */
 #define WLFC_HANGER_MAXITEMS 1024
 
@@ -136,6 +138,7 @@ typedef struct wlfc_mac_descriptor {
 	/* flag. TRUE when in suppress state */
 	uint8 suppressed;
 	uint8 deleting;
+
 
 #ifdef PROP_TXSTATUS_DEBUG
 	uint32 dstncredit_sent_packets;

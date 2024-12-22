@@ -1,0 +1,103 @@
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8974-common.dtsi"
+
+&sensors_i2c {
+		cell-index = <77>;
+
+		sensor_mux@03 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			cell-index = <12>;
+			compatible = "stm,sensor_mux";
+			reg = <0x03>;
+			interrupt = <67>;
+			vcc-supply = <&pm8941_l17>;
+			vcc_i2c-supply = <&pm8941_lvs1>;
+
+			sensor_hub@08 {
+				compatible = "stm,sensor_hub";
+				reg = <0x08>;
+				interrupt-parent = <&msmgpio>;
+				interrupt = <67>;
+				reset-pin = <69>;
+				low_pwr = <94>;
+				vcc-supply = <&pm8941_l17>;
+				vcc_i2c-supply = <&pm8941_lvs1>;
+				hub-go-cmd;
+				userspace = <1>;
+			};
+			
+			lsm303d@1e {
+				compatible = "stm,lsm303d";
+				reg = <0x1e>;
+				vcc-supply = <&pm8941_l17>;
+				vcc_i2c-supply = <&pm8941_lvs1>;
+				stm,rotation_matrix = <1>;
+				orientation-x = "y";
+				orientation-y = "-x";
+				orientation-z = "z";
+				userspace = <0>;
+			};
+
+			stmvl6180@29 {
+				compatible = "stm,stmvl6180";
+				reg = <0x29>;
+				interrupt-parent = <&msmgpio>;
+				interrupts = <74 4>;
+				vcc-supply = <&pm8941_l17>;
+				vcc_i2c-supply = <&pm8941_lvs1>;
+				reset = <&msmgpio 25 0>;
+				userspace = <1>;
+			};
+
+			l3gd20_gyr@6a {
+				compatible = "stm,l3gd20_gyr";
+				reg = <0x6a>;
+				interrupt-parent = <&msmgpio>;
+				interrupts = <66 0x2001>;
+				vcc-supply = <&pm8941_l17>;
+				vcc_i2c-supply = <&pm8941_lvs1>;
+				orientation-x = "y";
+				orientation-y = "-x";
+				orientation-z = "z";
+				userspace = <0>;
+			};
+		};
+};
+
+&pm8941_mpps {
+	mpp@a500 { /* MPP 6 */
+		qcom,mode = <4>;
+		qcom,invert = <1>;
+		qcom,ain-route = <1>;
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>;
+	};
+
+	mpp@a600 { /* MPP 7 */
+		qcom,mode = <4>;
+		qcom,invert = <1>;
+		qcom,ain-route = <2>;
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>;
+	};
+
+	mpp@a700 { /* MPP 8 */
+		qcom,mode = <4>;
+		qcom,invert = <1>;
+		qcom,ain-route = <3>;
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>;
+	};
+};

@@ -18,6 +18,7 @@
 #include "msm_sensor_driver.h"
 #include "msm_sensor.h"
 #include "msm_sd.h"
+#include <linux/ratelimit.h>
 
 /* Logging macro */
 /*#define CONFIG_MSMB_CAMERA_DEBUG*/
@@ -121,7 +122,7 @@ static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 
 	default:
-		pr_err("default");
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 		break;
 	}
 

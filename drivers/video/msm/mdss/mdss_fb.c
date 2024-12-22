@@ -3384,6 +3384,27 @@ int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num)
 }
 EXPORT_SYMBOL(mdss_fb_get_phys_info);
 
+int mdss_fb_send_panel_dead(int fb_num)
+{
+	struct fb_info *info;
+	char *envp[2] = {"PANEL_ALIVE=0", NULL};
+
+	if (fb_num >= MAX_FBI_LIST)
+		return -EINVAL;
+
+	info = fbi_list[fb_num];
+	if (!info)
+		return -ENOENT;
+	
+	pr_err("Panel %d has gone bad, sending uevent - %s\n", fb_num,
+			envp[0]);
+	kobject_uevent_env(&info->dev->kobj,
+			KOBJ_CHANGE, envp);
+	
+	return 0;
+}
+EXPORT_SYMBOL(mdss_fb_send_panel_dead);
+
 int __init mdss_fb_init(void)
 {
 	int rc = -ENODEV;

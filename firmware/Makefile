@@ -141,6 +141,30 @@ fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE) += \
+	synaptics/57695-004.img \
+	synaptics/57695-005.img \
+	synaptics/57695-006.img \
+	synaptics/57782-005.img \
+	synaptics/57782-006.img \
+	synaptics/57782-007.img \
+	synaptics/57782-008.img \
+	synaptics/57782-009.img \
+	synaptics/57782-010.img \
+	synaptics/57782-011.img \
+	synaptics/57782-012.img \
+	synaptics/57782-013.img \
+	synaptics/60384-001.img \
+	synaptics/60946-001.img \
+	synaptics/60946-002.img \
+	synaptics/60946-003.img \
+	synaptics/60946-004.img \
+	synaptics/60946-101.img \
+	synaptics/60946-102.img \
+	synaptics/60946-104.img \
+	synaptics/61519-001.img \
+	synaptics/61519-002.img
+
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 # Directories which we _might_ need to create, so we have a rule for them.
@@ -201,7 +225,7 @@ $(objtree)/$$(%) $(objtree)/$(obj)/$$(%): $(firmware-dirs)
 
 $(patsubst %,$(obj)/%.gen.S, $(fw-shipped-y)): %: $(wordsize_deps) \
 		| $(objtree)/$$(dir %)
-	$(call cmd,fwbin,$(patsubst %.gen.S,%,$@))
+	$(call cmd,fwbin,$(patsubst %.gen.S,$(srctree)/%,$@))
 $(patsubst %,$(obj)/%.gen.S, $(fw-external-y)): %: $(wordsize_deps) \
 		include/config/extra/firmware/dir.h | $(objtree)/$$(dir %)
 	$(call cmd,fwbin,$(fwabs)/$(patsubst $(obj)/%.gen.S,%,$@))

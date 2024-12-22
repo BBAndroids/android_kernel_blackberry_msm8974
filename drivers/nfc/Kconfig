@@ -48,3 +48,5 @@ config NFC_QNCI
 	  This enables the NFC driver for QCA199x based devices.
 	  This is for i2c connected version. NCI protocol logic
 	  resides in the usermode and it has no other NFC dependencies.
+
+source "drivers/nfc/broadcom/Kconfig"

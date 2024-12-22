@@ -22,6 +22,7 @@
 #include "msm_cci.h"
 #include "msm_cam_cci_hwreg.h"
 #include "msm_camera_io_util.h"
+#include <linux/ratelimit.h>
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
@@ -321,18 +322,10 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	enum cci_i2c_queue_t queue = QUEUE_1;
 	struct cci_device *cci_dev = NULL;
 	struct msm_camera_cci_i2c_read_cfg *read_cfg = NULL;
-
 	CDBG("%s line %d\n", __func__, __LINE__);
 	cci_dev = v4l2_get_subdevdata(sd);
 	master = c_ctrl->cci_info->cci_i2c_master;
 	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
-
-	if (master >= MASTER_MAX || master < 0) {
-		pr_err("%s:%d Invalid I2C master %d\n",
-			__func__, __LINE__, master);
-		return -EINVAL;
-	}
-
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
 
 	/*
@@ -499,7 +492,7 @@ static int32_t msm_cci_i2c_read_bytes(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	if (c_ctrl->cci_info->cci_i2c_master >= MASTER_MAX
+	if (c_ctrl->cci_info->cci_i2c_master > MASTER_MAX
 			|| c_ctrl->cci_info->cci_i2c_master < 0) {
 		pr_err("%s:%d Invalid I2C master addr\n", __func__, __LINE__);
 		return -EINVAL;
@@ -545,12 +538,11 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	enum cci_i2c_master_t master;
 	enum cci_i2c_queue_t queue = QUEUE_0;
 	cci_dev = v4l2_get_subdevdata(sd);
-	if (c_ctrl->cci_info->cci_i2c_master >= MASTER_MAX
+	if (c_ctrl->cci_info->cci_i2c_master > MASTER_MAX
 			|| c_ctrl->cci_info->cci_i2c_master < 0) {
 		pr_err("%s:%d Invalid I2C master addr\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-
 	master = c_ctrl->cci_info->cci_i2c_master;
 	CDBG("%s master %d, queue %d\n", __func__, master, queue);
 	CDBG("%s set param sid 0x%x retries %d id_map %d\n", __func__,
@@ -715,6 +707,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	rc = msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 1);
 	if (rc < 0) {
+		cci_dev->ref_count--;
 		CDBG("%s: request gpio failed\n", __func__);
 		goto request_gpio_failed;
 	}
@@ -722,6 +715,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	rc = msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, ARRAY_SIZE(cci_clk_info), 1);
 	if (rc < 0) {
+		cci_dev->ref_count--;
 		CDBG("%s: clk enable failed\n", __func__);
 		goto clk_enable_failed;
 	}
@@ -908,6 +902,7 @@ static long msm_cci_subdev_ioctl(struct v4l2_subdev *sd,
 		return rc;
 	}
 	default:
+		pr_err_ratelimited("%s: Invalid command 0x%x\n", __func__, cmd);
 		rc = -ENOIOCTLCMD;
 	}
 	CDBG("%s line %d rc %d\n", __func__, __LINE__, rc);

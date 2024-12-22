@@ -25,13 +25,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
-struct persistent_ram_buffer {
-	uint32_t    sig;
-	atomic_t    start;
-	atomic_t    size;
-	uint8_t     data[0];
-};
-
 #define PERSISTENT_RAM_SIG (0x43474244) /* DBGC */
 
 static __devinitdata LIST_HEAD(persistent_ram_list);
@@ -79,6 +72,23 @@ static inline void buffer_size_add(struct persistent_ram_zone *prz, size_t a)
 	} while (atomic_cmpxchg(&prz->buffer->size, old, new) != old);
 }
 
+/* increase the size counter, retuning an error if it hits the max size */
+static inline ssize_t buffer_size_add_clamp(struct persistent_ram_zone *prz,
+	size_t a)
+{
+	size_t old;
+	size_t new;
+
+	do {
+		old = atomic_read(&prz->buffer->size);
+		new = old + a;
+		if (new > prz->buffer_size)
+			return -ENOMEM;
+	} while (atomic_cmpxchg(&prz->buffer->size, old, new) != old);
+
+	return 0;
+}
+
 static void notrace persistent_ram_encode_rs8(struct persistent_ram_zone *prz,
 	uint8_t *data, size_t len, uint8_t *ecc)
 {
@@ -104,7 +114,7 @@ static int persistent_ram_decode_rs8(struct persistent_ram_zone *prz,
 				NULL, 0, NULL, 0, NULL);
 }
 
-static void notrace persistent_ram_update_ecc(struct persistent_ram_zone *prz,
+void notrace persistent_ram_update_ecc(struct persistent_ram_zone *prz,
 	unsigned int start, unsigned int count)
 {
 	struct persistent_ram_buffer *buffer = prz->buffer;
@@ -130,7 +140,7 @@ static void notrace persistent_ram_update_ecc(struct persistent_ram_zone *prz,
 	} while (block < buffer->data + start + count);
 }
 
-static void persistent_ram_update_header_ecc(struct persistent_ram_zone *prz)
+void notrace persistent_ram_update_header_ecc(struct persistent_ram_zone *prz)
 {
 	struct persistent_ram_buffer *buffer = prz->buffer;
 
@@ -279,15 +289,12 @@ int notrace persistent_ram_write(struct persistent_ram_zone *prz,
 	int c = count;
 	size_t start;
 
-	if (unlikely(prz->buffer->sig != PERSISTENT_RAM_SIG))
-		return -EINVAL;
-
 	if (unlikely(c > prz->buffer_size)) {
 		s += c - prz->buffer_size;
 		c = prz->buffer_size;
 	}
 
-	buffer_size_add(prz, c);
+	buffer_size_add_clamp(prz, c);
 
 	start = buffer_start_add(prz, c);
 

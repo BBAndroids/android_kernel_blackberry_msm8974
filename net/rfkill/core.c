@@ -575,7 +575,7 @@ static ssize_t rfkill_name_show(struct device *dev,
 
 static const char *rfkill_get_type_str(enum rfkill_type type)
 {
-	BUILD_BUG_ON(NUM_RFKILL_TYPES != RFKILL_TYPE_FM + 1);
+	BUILD_BUG_ON(NUM_RFKILL_TYPES != RFKILL_TYPE_MODEM + 1);
 
 	switch (type) {
 	case RFKILL_TYPE_WLAN:
@@ -592,6 +592,8 @@ static const char *rfkill_get_type_str(enum rfkill_type type)
 		return "gps";
 	case RFKILL_TYPE_FM:
 		return "fm";
+	case RFKILL_TYPE_MODEM:
+		return "modem";
 	default:
 		BUG();
 	}

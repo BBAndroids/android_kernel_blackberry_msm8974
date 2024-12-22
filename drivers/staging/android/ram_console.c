@@ -22,6 +22,7 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
+#include <linux/kmsg_dump.h>
 #include "ram_console.h"
 
 static struct persistent_ram_zone *ram_console_zone;
@@ -40,6 +41,35 @@ static struct console ram_console = {
 	.write	= ram_console_write,
 	.flags	= CON_PRINTBUFFER | CON_ENABLED | CON_ANYTIME,
 	.index	= -1,
+};
+
+static void oops_to_ram_console(struct kmsg_dumper *dumper,
+			  enum kmsg_dump_reason reason)
+{
+	static DEFINE_SPINLOCK(lock);
+	unsigned long flags;
+	size_t text_len;
+	struct persistent_ram_zone *prz = ram_console_zone;
+	
+	unregister_console(&ram_console);
+
+	if (!spin_trylock_irqsave(&lock, flags))
+		return;
+
+	kmsg_dump_get_buffer(dumper, false, prz->buffer->data, prz->buffer_size, &text_len);
+
+	atomic_set(&prz->buffer->start, 0);
+	atomic_set(&prz->buffer->size, text_len);
+
+	persistent_ram_update_ecc(prz, 0, text_len);
+
+	persistent_ram_update_header_ecc(prz);
+
+	spin_unlock_irqrestore(&lock, flags);
+}
+
+static struct kmsg_dumper ram_console_kmsg_dumper = {
+	.dump = oops_to_ram_console
 };
 
 void ram_console_enable_console(int enabled)
@@ -70,6 +100,8 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 	ram_console.data = prz;
 
 	register_console(&ram_console);
+	
+	kmsg_dump_register(&ram_console_kmsg_dumper);
 
 	return 0;
 }
@@ -100,6 +132,9 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 	const char *old_log = persistent_ram_old(prz);
 	char *str;
 	int ret;
+
+	if (dmesg_restrict && !capable(CAP_SYSLOG))
+		return -EPERM;
 
 	/* Main last_kmsg log */
 	if (pos < old_log_size) {

@@ -53,7 +53,7 @@ static int of_batterydata_read_lut(const struct device_node *np,
 		pr_err("%s: No row legend value found\n", np->name);
 		return -ENODATA;
 	} else if (prop->length > max_rows * sizeof(int)) {
-		pr_err("%s: Too many rows\n", np->name);
+		pr_err("%s: Too many rows %d %d\n", np->name, prop->length, max_rows * sizeof(int));
 		return -EINVAL;
 	} else {
 		rows = prop->length/sizeof(int);

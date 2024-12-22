@@ -328,6 +328,7 @@ struct sdhci_msm_pltfm_data {
 	unsigned char sup_clk_cnt;
 	int mpm_sdiowakeup_int;
 	int sdiowakeup_irq;
+	bool wifi_control_func;
 };
 
 struct sdhci_msm_bus_vote {
@@ -1615,7 +1616,10 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		goto out;
 	}
 
-	if (sdhci_msm_dt_parse_vreg_info(dev, &pdata->vreg_data->vdd_data,
+	if (of_get_property(np, "qcom,wifi-control-func", NULL))
+		pdata->wifi_control_func = true;
+
+	if (!pdata->wifi_control_func && sdhci_msm_dt_parse_vreg_info(dev, &pdata->vreg_data->vdd_data,
 					 "vdd")) {
 		dev_err(dev, "failed parsing vdd data\n");
 		goto out;
@@ -3026,6 +3030,8 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	}
 }
 
+extern int bcm_wifi_mmc_host_register(struct mmc_host *host);
+
 static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -3302,8 +3308,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_RUNTIME_PM;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
-	msm_host->mmc->caps2 |= (MMC_CAP2_BOOTPART_NOACC |
-				MMC_CAP2_DETECT_ON_ERR);
+	msm_host->mmc->caps2 |= MMC_CAP2_DETECT_ON_ERR;
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
@@ -3318,6 +3323,13 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	host->cpu_dma_latency_us = msm_host->pdata->cpu_dma_latency_us;
 
 	init_completion(&msm_host->pwr_irq_completion);
+
+	pr_info("%s: id %d, nonremovable %d\n", mmc_hostname(host->mmc),
+			pdev->id, msm_host->pdata->nonremovable);
+	if (msm_host->pdata->wifi_control_func) {
+		bcm_wifi_mmc_host_register(host->mmc);
+		msm_host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
+	}
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_cd_gpio_request(msm_host->mmc,
@@ -3366,6 +3378,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
 		goto free_cd_gpio;
 	}
+	
+	if (msm_host->pdata->wifi_control_func) {
+		host->mmc->ocr_avail_sdio = MMC_VDD_165_195 | MMC_VDD_29_30;
+	}
 
 	msm_host->msm_bus_vote.max_bus_bw.show = show_sdhci_max_bus_bw;
 	msm_host->msm_bus_vote.max_bus_bw.store = store_sdhci_max_bus_bw;
@@ -3377,7 +3393,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_host;
 
-	if (!gpio_is_valid(msm_host->pdata->status_gpio)) {
+	if (!msm_host->pdata->wifi_control_func && !gpio_is_valid(msm_host->pdata->status_gpio)) {
 		msm_host->polling.show = show_polling;
 		msm_host->polling.store = store_polling;
 		sysfs_attr_init(&msm_host->polling.attr);

@@ -5,13 +5,13 @@
  * Definitions subject to change without notice.
  *
  * Copyright (C) 1999-2013, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -19,7 +19,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -229,6 +229,15 @@ typedef struct wl_bss_info {
 	/* variable length Information Elements */
 } wl_bss_info_t;
 
+#define	WL_GSCAN_BSS_INFO_VERSION	1	/* current version of wl_gscan_bss_info struct */
+#define WL_GSCAN_INFO_FIXED_FIELD_SIZE   (sizeof(wl_gscan_bss_info_t) - sizeof(wl_bss_info_t))
+
+typedef struct wl_gscan_bss_info {
+	uint32      timestamp[2];
+	wl_bss_info_t info;
+	/* variable length Information Elements */
+} wl_gscan_bss_info_t;
+
 /* bss_info_cap_t flags */
 #define WL_BSS_FLAGS_FROM_BEACON	0x01	/* bss_info derived from beacon */
 #define WL_BSS_FLAGS_FROM_CACHE		0x02	/* bss_info collected from cache */
@@ -315,7 +324,8 @@ typedef struct wlc_ssid {
 
 typedef struct wlc_ssid_ext {
 	bool       hidden;
-	uint32		SSID_len;
+	uint16     flags;
+	uint16	   SSID_len;
 	uchar		SSID[DOT11_MAX_SSID_LEN];
 } wlc_ssid_ext_t;
 
@@ -477,6 +487,14 @@ typedef struct wl_escan_result {
 
 #define WL_ESCAN_RESULTS_FIXED_SIZE (sizeof(wl_escan_result_t) - sizeof(wl_bss_info_t))
 
+typedef struct wl_gscan_result {
+	uint32 buflen;
+	uint32 version;
+	wl_gscan_bss_info_t bss_info[1];
+} wl_gscan_result_t;
+
+#define WL_GSCAN_RESULTS_FIXED_SIZE (sizeof(wl_gscan_result_t) - sizeof(wl_gscan_bss_info_t))
+
 /* incremental scan results struct */
 typedef struct wl_iscan_results {
 	uint32 status;
@@ -544,6 +562,62 @@ typedef struct wl_join_params {
 					 * of the wl_assoc_params_t struct when it does present.
 					 */
 } wl_join_params_t;
+
+typedef struct wlc_roam_exp_params {
+	int8 a_band_boost_threshold;
+	int8 a_band_penalty_threshold;
+	uint8 a_band_boost_factor;
+	uint8 a_band_penalty_factor;
+	uint8 cur_bssid_boost;
+	int8 alert_roam_trigger_threshold;
+	uint16 a_band_max_boost;
+} wlc_roam_exp_params_t;
+
+#define ROAM_EXP_CFG_VERSION     1
+#define ROAM_EXP_ENABLE_FLAG             (1 << 0)
+#define ROAM_EXP_CFG_PRESENT             (1 << 1)
+typedef struct wl_roam_exp_cfg {
+	uint8 version;
+	uint8 flags;
+	uint16 reserved;
+	wlc_roam_exp_params_t params;
+} wl_roam_exp_cfg_t;
+
+typedef struct wl_bssid_pref_list {
+	struct ether_addr bssid;
+	/* Add this to modify rssi */
+	int8 rssi_factor;
+	int8 flags;
+} wl_bssid_pref_list_t;
+
+#define BSSID_PREF_LIST_VERSION        1
+#define ROAM_EXP_CLEAR_BSSID_PREF        (1 << 0)
+typedef struct wl_bssid_pref_cfg {
+	uint8 version;
+	uint8 flags;
+	uint16 count;
+	wl_bssid_pref_list_t bssids[1];
+} wl_bssid_pref_cfg_t;
+
+#define SSID_WHITELIST_VERSION         1
+#define ROAM_EXP_CLEAR_SSID_WHITELIST    (1 << 0)
+/* Roam SSID whitelist, ssids in this list are ok to                   */
+/* be considered as targets to join when considering a roam */
+typedef struct wl_ssid_whitelist {
+	uint8 version;
+	uint8 flags;
+	uint8 ssid_count;
+	uint8 reserved;
+	wlc_ssid_t ssids[1];
+} wl_ssid_whitelist_t;
+
+#define ROAM_EXP_EVENT_VERSION       1
+typedef struct wl_roam_exp_event {
+	uint8 version;
+	uint8 flags;
+	uint16 reserved;
+	wlc_ssid_t cur_ssid;
+} wl_roam_exp_event_t;
 
 #ifndef  LINUX_POSTMOGRIFY_REMOVAL
 #define WL_JOIN_PARAMS_FIXED_SIZE 	(OFFSETOF(wl_join_params_t, params) + \
@@ -870,7 +944,7 @@ typedef enum sup_auth_status {
 #define CRYPTO_ALGO_CKIP_MMH		8
 #define CRYPTO_ALGO_WEP_MMH		9
 #define CRYPTO_ALGO_NALG		10
-#endif 
+#endif
 #define CRYPTO_ALGO_PMK			12	/* for 802.1x supp to set PMK before 4-way */
 #define CRYPTO_ALGO_BIP			13  /* 802.11w BIP (aes cmac) */
 
@@ -889,7 +963,7 @@ typedef enum sup_auth_status {
 #else
 #define WL_KF_RES_4	(1 << 4)	/* Reserved for backward compat */
 #define WL_KF_RES_5	(1 << 5)	/* Reserved for backward compat */
-#endif 
+#endif
 #define WL_IBSS_PEER_GROUP_KEY	(1 << 6)	/* Indicates a group key for a IBSS PEER */
 
 typedef struct wl_wsec_key {
@@ -952,7 +1026,7 @@ typedef struct {
 #if defined(BCMEXTCCX)
 #define WPA_AUTH_CCKM		0x0008	/* CCKM */
 #define WPA2_AUTH_CCKM		0x0010	/* CCKM2 */
-#endif	
+#endif
 /* #define WPA_AUTH_8021X 0x0020 */	/* 802.1x, reserved */
 #define WPA2_AUTH_UNSPECIFIED	0x0040	/* over 802.1x */
 #define WPA2_AUTH_PSK		0x0080	/* Pre-shared key */
@@ -1176,10 +1250,10 @@ typedef struct channel_info {
 } channel_info_t;
 
 /* For ioctls that take a list of MAC addresses */
-struct maclist {
+typedef struct maclist {
 	uint count;			/* number of MAC addresses */
 	struct ether_addr ea[1];	/* variable length array of MAC addresses */
-};
+} maclist_t;
 
 #ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* get pkt count struct passed through ioctl */
@@ -1749,6 +1823,7 @@ typedef struct {
 #define WL_AUTH_OPEN_SYSTEM		0	/* d11 open authentication */
 #define WL_AUTH_SHARED_KEY		1	/* d11 shared authentication */
 #define WL_AUTH_OPEN_SHARED		2	 /* try open, then shared if open failed w/rc 13 */
+
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* Bit masks for radio disabled status - returned by WL_GET_RADIO */
@@ -2964,8 +3039,8 @@ typedef struct wl_txchain_pwr_offsets {
 #define WL_WDS_WPA_ROLE_SUP	1	/* supplicant */
 #define WL_WDS_WPA_ROLE_AUTO	255	/* auto, based on mac addr value */
 
-/* number of bytes needed to define a 128-bit mask for MAC event reporting */
-#define WL_EVENTING_MASK_LEN	16
+/* number of bytes needed to define a mask for MAC event reporting */
+#define WL_EVENTING_MASK_LEN	((WLC_E_LAST + 7) / 8)
 
 /*
  * Join preference iovar value is an array of tuples. Each tuple has a one-byte type,
@@ -3907,6 +3982,13 @@ enum {
 #define PFN_PARTIAL_SCAN_BIT		0
 #define PFN_PARTIAL_SCAN_MASK		1
 
+#define PFN_SWC_RSSI_WINDOW_MAX   8
+#define PFN_SWC_MAX_NUM_APS       16
+#define PFN_HOTLIST_MAX_NUM_APS   64
+
+#define MAX_EPNO_HIDDEN_SSID         8
+#define MAX_WHITELIST_SSID           2
+
 /* PFN network info structure */
 typedef struct wl_pfn_subnet_info {
 	struct ether_addr BSSID;
@@ -3944,6 +4026,20 @@ typedef struct wl_pfn_scanresults {
 	wl_pfn_net_info_t netinfo[1];
 } wl_pfn_scanresults_t;
 
+typedef struct wl_pfn_significant_net {
+	uint16 flags;
+	uint16 channel;
+	struct ether_addr BSSID;
+	int8 rssi[PFN_SWC_RSSI_WINDOW_MAX];
+} wl_pfn_significant_net_t;
+
+typedef struct wl_pfn_swc_results {
+	uint32 version;
+	uint32 pkt_count;
+	uint32 total_count;
+	wl_pfn_significant_net_t list[1];
+} wl_pfn_swc_results_t;
+
 /* PFN data structure */
 typedef struct wl_pfn_param {
 	int32 version;			/* PNO parameters version */
@@ -3972,6 +4068,13 @@ typedef struct wl_pfn_bssid {
 	/* Bit4: suppress_lost, Bit3: suppress_found */
 	uint16			flags;
 } wl_pfn_bssid_t;
+
+typedef struct wl_pfn_significant_bssid {
+	struct ether_addr	macaddr;
+	int8    rssi_low_threshold;
+	int8    rssi_high_threshold;
+} wl_pfn_significant_bssid_t;
+
 #define WL_PFN_SUPPRESSFOUND_MASK	0x08
 #define WL_PFN_SUPPRESSLOST_MASK	0x10
 #define WL_PFN_RSSI_MASK		0xff00
@@ -3983,13 +4086,54 @@ typedef struct wl_pfn_cfg {
 	uint16	channel_list[WL_NUMCHANNELS];
 	uint32	flags;
 } wl_pfn_cfg_t;
+
+#define CH_BUCKET_REPORT_REGULAR            0
+#define CH_BUCKET_REPORT_FULL_RESULT        2
+#define CH_BUCKET_GSCAN                     4
+
+typedef struct wl_pfn_gscan_ch_bucket_cfg {
+	uint8 bucket_end_index;
+	uint8 bucket_freq_multiple;
+	uint8 flag;
+	uint8 reserved;
+	uint16 repeat;
+	uint16 max_freq_multiple;
+} wl_pfn_gscan_ch_bucket_cfg_t;
+
+#define GSCAN_SEND_ALL_RESULTS_MASK          (1 << 0)
+#define GSCAN_CFG_FLAGS_ONLY_MASK            (1 << 7)
+#define WL_GSCAN_CFG_VERSION                     2
+typedef struct wl_pfn_gscan_cfg {
+	uint16 version;
+	/* BIT0 1 = send probes/beacons to HOST
+	 * BIT1 Reserved
+	 * BIT2 Reserved
+	 * Add any future flags here
+	 * BIT7 1 = no other useful cfg sent
+	 */
+	uint8 flags;
+	/* Buffer filled threshold in % to generate an event */
+	uint8   buffer_threshold;
+	/* No. of BSSIDs with "change" to generate an evt
+	 * change - crosses rssi threshold/lost
+	 */
+	uint8   swc_nbssid_threshold;
+	/* Max=8 (for now) Size of rssi cache buffer */
+	uint8  swc_rssi_window_size;
+	uint8  count_of_channel_buckets;
+	uint8  retry_threshold;
+	uint16  lost_ap_window;
+	wl_pfn_gscan_ch_bucket_cfg_t channel_bucket[1];
+} wl_pfn_gscan_cfg_t;
+
 #define WL_PFN_REPORT_ALLNET    0
 #define WL_PFN_REPORT_SSIDNET   1
 #define WL_PFN_REPORT_BSSIDNET  2
 
 #define WL_PFN_CFG_FLAGS_PROHIBITED	0x00000001	/* Accept and use prohibited channels */
 #define WL_PFN_CFG_FLAGS_RESERVED	0xfffffffe	/* Remaining reserved for future use */
-
+#define WL_PFN_SSID_A_BAND_TRIG   0x20
+#define WL_PFN_SSID_BG_BAND_TRIG   0x40
 typedef struct wl_pfn {
 	wlc_ssid_t		ssid;		/* ssid name and its length */
 	int32			flags;		/* bit2: hidden */
@@ -4004,11 +4148,55 @@ typedef struct wl_pfn_list {
 	uint32		count;
 	wl_pfn_t	pfn[1];
 } wl_pfn_list_t;
+
+#define PFN_SSID_EXT_VERSION   2
+
+typedef struct wl_pfn_ext {
+	uint8 flags;
+	int8 rssi_thresh; /* RSSI threshold, track only if RSSI > threshold */
+	uint16 wpa_auth; /* Match the wpa auth type defined in wlioctl_defs.h */
+	uint8 ssid[DOT11_MAX_SSID_LEN];
+	uint8 ssid_len;
+	uint8 pad;
+} wl_pfn_ext_t;
+
+typedef struct wl_pfn_ext_list {
+	uint16 version;
+	uint16 count;
+	wl_pfn_ext_t pfn_ext[1];
+} wl_pfn_ext_list_t;
+
+#define WL_PFN_SSID_EXT_FOUND   0x1
+#define WL_PFN_SSID_EXT_LOST    0x2
+typedef struct wl_pfn_result_ssid {
+	uint8 flags;
+	int8 rssi;
+	/* channel number */
+	uint16 channel;
+	/* Assume idx in order of cfg */
+	uint16 index;
+	struct ether_addr bssid;
+} wl_pfn_result_ssid_crc32_t;
+
+typedef struct wl_pfn_ssid_ext_result {
+	uint16 version;
+	uint16 count;
+	wl_pfn_result_ssid_crc32_t net[1];
+} wl_pfn_ssid_ext_result_t;
+
+#define PFN_EXT_AUTH_CODE_OPEN   1 /* open */
+#define PFN_EXT_AUTH_CODE_PSK   2 /* WPA_PSK or WPA2PSK */
+#define PFN_EXT_AUTH_CODE_EAPOL 4 /* any EAPOL  */
+
 #define WL_PFN_HIDDEN_BIT	2
 #define PNO_SCAN_MAX_FW		508*1000	/* max time scan time in msec */
 #define PNO_SCAN_MAX_FW_SEC	PNO_SCAN_MAX_FW/1000 /* max time scan time in SEC */
 #define PNO_SCAN_MIN_FW_SEC	10		/* min time scan time in SEC */
 #define WL_PFN_HIDDEN_MASK	0x4
+#define MAX_SSID_WHITELIST_NUM         4
+#define MAX_BSSID_PREF_LIST_NUM        32
+#define MAX_BSSID_BLACKLIST_NUM        32
+
 #ifndef BESTN_MAX
 #define BESTN_MAX			3
 #endif
@@ -5620,5 +5808,28 @@ typedef struct wl_el_tag_params_s {
 	uint8 set;
 	uint8 flags;
 } wl_el_tag_params_t;
+
+typedef enum event_msgs_ext_command {
+	EVENTMSGS_NONE		=	0,
+	EVENTMSGS_SET_BIT	=	1,
+	EVENTMSGS_RESET_BIT	=	2,
+	EVENTMSGS_SET_MASK	=	3
+} event_msgs_ext_command_t;
+
+#define EVENTMSGS_VER 1
+#define EVENTMSGS_EXT_STRUCT_SIZE	OFFSETOF(eventmsgs_ext_t, mask[0])
+
+/* len-	for SET it would be mask size from the application to the firmware */
+/*		for GET it would be actual firmware mask size */
+/* maxgetsize -	is only used for GET. indicate max mask size that the */
+/*				application can read from the firmware */
+typedef struct eventmsgs_ext
+{
+	uint8	ver;
+	uint8	command;
+	uint8	len;
+	uint8	maxgetsize;
+	uint8	mask[1];
+} eventmsgs_ext_t;
 
 #endif /* _wlioctl_h_ */
