@@ -26,7 +26,6 @@
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
 #include <linux/regulator/consumer.h>
-#include <synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
 #include <linux/input/mt.h>
 
@@ -2137,7 +2136,7 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 		goto err_query_device;
 	}
 
-	rmi4_data->input_dev->name = rmi4_data->hw_if->board_data->input_dev_name;
+	rmi4_data->input_dev->name = bdata->input_dev_name;
 	rmi4_data->input_dev->phys = INPUT_PHYS_NAME;
 	rmi4_data->input_dev->id.product = SYNAPTICS_DSX_DRIVER_PRODUCT;
 	rmi4_data->input_dev->id.version = SYNAPTICS_DSX_DRIVER_VERSION;
@@ -2726,9 +2725,8 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&rmi4_data->exp_data.work, synaptics_rmi4_exp_fn_work);
 	rmi4_data->exp_data.rmi4_data = rmi4_data;
 	rmi4_data->exp_data.queue_work = true;
-	queue_delayed_work(rmi4_data->exp_data.workqueue,
-			&rmi4_data->exp_data.work,
-			0);
+	queue_delayed_work(rmi4_data->exp_data.workqueue, &rmi4_data->exp_data.work, 0);
+
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
 	synaptics_rmi4_fw_update_module_init(rmi4_data);
 #endif

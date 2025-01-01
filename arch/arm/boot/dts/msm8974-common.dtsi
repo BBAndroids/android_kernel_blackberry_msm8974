@@ -174,6 +174,7 @@
 			synaptics,reset-on-state = <0>;
 			synaptics,reset-delay-ms = <60>;
 			synaptics,reset-active-ms = <200>;
+			synaptics,firmware = "synaptics/passport_display.bin";
 		};
 	};
 
@@ -234,6 +235,8 @@
 			synaptics,reset-delay-ms = <63>;
 			synaptics,reset-active-ms = <1>;
 			synaptics,touchpad;
+			synaptics,firmware = "synaptics/passport_keyboard.bin";
+			synaptics,flash-only-bricked;
 		};
 	};
 

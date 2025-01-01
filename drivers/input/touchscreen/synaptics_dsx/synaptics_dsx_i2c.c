@@ -30,7 +30,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
-#include <synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
 
 #define SYN_I2C_RETRY_TIMES 10
@@ -134,6 +133,16 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 				&bdata->input_dev_name);
 
 	bdata->touchpad = of_property_read_bool(np, "synaptics,touchpad");
+
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
+	if (of_find_property(np, "synaptics,firmware", NULL)) {
+		retval = of_property_read_string(np, "synaptics,firmware", &bdata->firmware_name);
+		if (retval < 0)
+			return retval;
+	}
+
+	bdata->flash_only_bricked = of_property_read_bool(np, "synaptics,flash-only-bricked");
+#endif
 
 	return 0;
 }
